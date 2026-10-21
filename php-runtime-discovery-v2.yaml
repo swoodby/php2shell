@@ -1,0 +1,76 @@
+
+id: php-runtime-discovery-v2
+
+info:
+  name: PHP Runtime Discovery - Headers and Diagnostics
+  author: alys-it
+  severity: info
+  description: |
+    Detects evidence of PHP execution or information
+    disclosure. Does not confirm PHP2Shell CVEs.
+  tags: php,discovery,misconfig,exposure
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+      - "{{BaseURL}}/index.php"
+      - "{{BaseURL}}/login.php"
+      - "{{BaseURL}}/admin/index.php"
+
+    redirects: true
+    max-redirects: 3
+    stop-at-first-match: false
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        name: php-version-header
+        part: header
+        regex:
+          - '(?i)x-powered-by:\s*PHP/[0-9]+\.[0-9]+(?:\.[0-9]+)?'
+
+      - type: regex
+        name: php-session-cookie
+        part: header
+        regex:
+          - '(?i)set-cookie:\s*PHPSESSID='
+
+    extractors:
+      - type: regex
+        name: disclosed-php-version
+        part: header
+        regex:
+          - '(?i)x-powered-by:\s*PHP/[0-9]+\.[0-9]+(?:\.[0-9]+)?'
+
+  - method: GET
+    path:
+      - "{{BaseURL}}/phpinfo.php"
+      - "{{BaseURL}}/info.php"
+      - "{{BaseURL}}/test.php"
+      - "{{BaseURL}}/php_info.php"
+
+    redirects: false
+    stop-at-first-match: false
+
+    matchers-condition: and
+    matchers:
+      - type: dsl
+        dsl:
+          - "status_code == 200"
+
+      - type: word
+        name: phpinfo-exposed
+        part: body
+        condition: and
+        words:
+          - "PHP Version"
+          - "Zend Engine"
+
+    extractors:
+      - type: regex
+        name: diagnostic-php-version
+        part: body
+        regex:
+          - '(?i)PHP Version\s*</td>\s*<td[^>]*>\s*[0-9]+\.[0-9]+\.[0-9]+'
+          - '(?i)PHP Version\s+[0-9]+\.[0-9]+\.[0-9]+'
